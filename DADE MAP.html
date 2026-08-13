@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dade Zones — Miami-Dade High School Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --sand:#fdf6e9;
+    --teal:#00b3a4;
+    --teal-dk:#007c72;
+    --coral:#ff6a5f;
+    --mango:#ffb200;
+    --grape:#7b5ea7;
+    --flamingo:#ff8fa3;
+    --ink:#1e2a3a;
+    --ink-soft:#5b6b7c;
+    --line:#e7ddc9;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--sand);
+    color:var(--ink);
+    font-family:'Poppins', sans-serif;
+    min-height:100vh;
+  }
+  ::selection{background:var(--mango); color:var(--ink);}
+
+  /* Deco sunburst header */
+  header{
+    position:relative;
+    overflow:hidden;
+    padding:0 0 0;
+    background:
+      radial-gradient(circle at 85% -10%, rgba(255,178,0,0.35), transparent 45%),
+      radial-gradient(circle at 10% -20%, rgba(0,179,164,0.30), transparent 40%),
+      linear-gradient(180deg, #0b3d4e 0%, #0e5164 55%, #12657c 100%);
+    color:#fdf6e9;
+  }
+  .sunburst{
+    position:absolute; inset:0;
+    opacity:0.14;
+    background: repeating-conic-gradient(from 0deg at 50% 130%, #fdf6e9 0deg 4deg, transparent 4deg 12deg);
+    pointer-events:none;
+  }
+  .header-inner{
+    position:relative;
+    max-width:1200px;
+    margin:0 auto;
+    padding:38px 28px 30px;
+  }
+  .eyebrow{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--mango);
+    margin-bottom:12px;
+  }
+  h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size:clamp(38px, 6vw, 68px);
+    line-height:0.95;
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+  h1 .accent{color:var(--flamingo);}
+  .lede{
+    max-width:600px;
+    font-size:16px;
+    line-height:1.6;
+    color:#cfe8e6;
+    margin:0 0 26px;
+  }
+
+  .legend-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:8px;
+  }
+  .legend-chip{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.18);
+    padding:8px 14px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    user-select:none;
+    transition:all 0.15s ease;
+  }
+  .legend-chip:hover{background:rgba(255,255,255,0.16);}
+  .legend-chip.off{opacity:0.4;}
+  .legend-dot{width:12px; height:12px; border-radius:50%; flex-shrink:0;}
+
+  /* Layout */
+  .layout{
+    max-width:1200px;
+    margin:0 auto;
+    padding:26px 28px 60px;
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    gap:22px;
+    align-items:start;
+  }
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:18px;
+    box-shadow:0 10px 30px -18px rgba(30,42,58,0.25);
+    overflow:hidden;
+  }
+
+  .search-box{
+    padding:16px;
+    border-bottom:1px solid var(--line);
+  }
+  .search-box input{
+    width:100%;
+    padding:11px 14px;
+    border-radius:12px;
+    border:1.5px solid var(--line);
+    font-family:'Poppins', sans-serif;
+    font-size:14px;
+    outline:none;
+    background:#fffdf7;
+  }
+  .search-box input:focus{border-color:var(--teal);}
+
+  .list{
+    max-height:640px;
+    overflow-y:auto;
+  }
+  .school-item{
+    padding:13px 16px;
+    border-bottom:1px solid #f2ead6;
+    cursor:pointer;
+    display:flex;
+    gap:11px;
+    align-items:flex-start;
+    transition:background 0.12s ease;
+  }
+  .school-item:hover, .school-item.active{background:#fff8ea;}
+  .school-swatch{
+    width:9px; height:9px; border-radius:50%;
+    margin-top:6px; flex-shrink:0;
+  }
+  .school-name{
+    font-weight:600;
+    font-size:13.5px;
+    line-height:1.3;
+    color:var(--ink);
+  }
+  .school-name a{color:var(--ink); text-decoration:none;}
+  .school-name a:hover{color:var(--teal-dk); text-decoration:underline;}
+
+  .popup-title a{color:var(--ink); text-decoration:none;}
+  .popup-title a:hover{color:var(--teal-dk); text-decoration:underline;}
+
+  .school-meta{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+
+  #map{
+    height:720px;
+    border-radius:18px;
+    border:1px solid var(--line);
+    box-shadow:0 10px 30px -18px rgba(30,42,58,0.25);
+  }
+  @media (max-width:900px){
+    #map{height:480px;}
+  }
+
+  .leaflet-popup-content-wrapper{
+    border-radius:14px;
+    font-family:'Poppins', sans-serif;
+  }
+  .popup-title{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size:16px;
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  .popup-row{font-size:12.5px; color:var(--ink-soft); line-height:1.5;}
+  .popup-tag{
+    display:inline-block;
+    margin-top:6px;
+    padding:2px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:600;
+    color:#fff;
+  }
+
+  .stat-strip{
+    display:flex;
+    gap:0;
+    margin-top:24px;
+    border-radius:16px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    background:#fff;
+  }
+  .stat-strip .cell{
+    flex:1;
+    padding:16px 18px;
+    border-right:1px solid var(--line);
+  }
+  .stat-strip .cell:last-child{border-right:none;}
+  .stat-strip .n{
+    font-family:'Baloo 2', sans-serif;
+    font-size:28px;
+    font-weight:700;
+    color:var(--teal-dk);
+  }
+  .stat-strip .l{
+    font-family:'Space Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+
+  footer{
+    max-width:1200px;
+    margin:0 auto;
+    padding:0 28px 50px;
+    font-family:'Space Mono', monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    line-height:1.8;
+  }
+  footer a{color:var(--teal-dk);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sunburst"></div>
+  <div class="header-inner">
+    <div class="eyebrow">Miami-Dade County Public Schools</div>
+    <h1>High School<br><span class="accent">Zone Map</span></h1>
+    <p class="lede">Every zoned senior high in Miami-Dade, mapped and color-coded by region — North, Central, and South. Click a pin or a school in the list to see attendance-zone details.</p>
+    <div class="legend-row" id="legendRow"></div>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="panel">
+    <div class="search-box">
+      <input type="text" id="search" placeholder="Search school, city, or zip…">
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+
+  <div>
+    <div id="map"></div>
+    <div class="stat-strip" id="statStrip"></div>
+  </div>
+</div>
+
+<footer>
+  Mapped from the Miami-Dade County Public Schools "High Attendance Boundary" record. Note: the uploaded export contained the school directory (name, address, region) but not the underlying attendance-zone polygon geometry — spreadsheet exports of a geodatabase layer drop the shape field. Pins mark each school's campus location; region colors (N / C / S) reflect the official zone assignment. For the exact zone polygons, see Miami-Dade County's <a href="https://gis-mdc.opendata.arcgis.com/maps/MDC::high-school-attendance-boundary" target="_blank" rel="noopener">Open Data Hub</a>.
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const REGION_COLORS = {
+  N: '#00b3a4',   // teal
+  C: '#ff6a5f',   // coral
+  S: '#ffb200',   // mango
+  U: '#7b5ea7'    // unknown/unassigned - grape
+};
+const REGION_NAMES = { N: 'North', C: 'Central', S: 'South', U: 'Unassigned' };
+
+// name, link, address, city, zip, phone, grades, region, lat, lon
+const SCHOOLS = [
+["North Miami Senior High","https://en.wikipedia.org/wiki/North_Miami_Senior_High_School","13110 NE 8 Ave.","North Miami","33161","305-891-6590","9-12","N",25.89750,-80.18333],
+["Miami Carol City Senior High","https://en.wikipedia.org/wiki/Miami_Carol_City_Senior_High_School","3301 Miami Gardens Dr.","Miami Gardens","33056","305-621-5681","9-12","N",25.89778,-80.20722],
+["Miami Jackson Senior High","https://en.wikipedia.org/wiki/Miami_Jackson_Senior_High_School","1751 NW 36 St.","Miami","33142","305-634-2621","9-12","C",25.79900,-80.22960],
+["Miami Central Senior High","https://en.wikipedia.org/wiki/Miami_Central_Senior_High_School","1781 NW 95 St.","Miami","33147","305-696-4161","9-12","C",25.86178,-80.22830],
+["Miami Edison Senior High","https://en.wikipedia.org/wiki/Miami_Edison_Senior_High_School","6161 NW 5 Ct.","Miami","33127","305-751-7337","9-12","C",25.83250,-80.20500],
+["Miami Southridge Senior High","https://en.wikipedia.org/wiki/Miami_Southridge_Senior_High_School","19355 SW 114 Ave.","Miami","33157","305-238-6110","9-12","S",25.58639,-80.37568],
+["Washington, Booker T. Senior High","https://en.wikipedia.org/wiki/Booker_T._Washington_Senior_High_School_(Miami)","1200 NW 6th Ave.","Miami","33136","305-324-8900","9-12","C",25.78450,-80.19980],
+["Mourning, Alonzo & Tracy SH Biscayne Bay","https://en.wikipedia.org/wiki/Alonzo_and_Tracy_Mourning_Senior_High_Biscayne_Bay_Campus","2601 NE 151 St","North Miami","33180","","9-12","N",25.90800,-80.15500],
+["Miami Palmetto Senior High","https://en.wikipedia.org/wiki/Miami_Palmetto_Senior_High_School","7460 SW 118 St.","Pinecrest","33156","","9-12","S",25.66250,-80.31583],
+["Hialeah Gardens Senior High","https://en.wikipedia.org/wiki/Hialeah_Gardens_High_School","11700 Hialeah Gardens Blvd","Hialeah Gardens","33016","","9-12","N",25.87970,-80.37450],
+["Westland Hialeah Senior High","https://en.wikipedia.org/wiki/Westland_Hialeah_Senior_High_School","4000 West 18 Av.","Hialeah","33012","","9-12","N",25.85794,-80.31892],
+["Miami Northwestern Senior High","https://en.wikipedia.org/wiki/Miami_Northwestern_Senior_High_School","1100 NW 71 St.","Miami","33150","","9-12","C",25.83750,-80.21300],
+["American Senior High","https://en.wikipedia.org/wiki/American_Senior_High_School","18350 NW 67 Ave.","Hialeah","33015","","9-12","N",25.93100,-80.33200],
+["Braddock, G. Holmes Senior High","https://en.wikipedia.org/wiki/G._Holmes_Braddock_Senior_High_School","3601 SW 147 Ave.","Miami","33185","","9-12","S",25.71500,-80.44500],
+["Krop, Dr. Michael M. Senior High","https://en.wikipedia.org/wiki/Michael_M._Krop_Senior_High_School","1410 NE 215 St.","Miami","33179","","9-12","N",25.95400,-80.16700],
+["Ferguson, John A. Senior High","https://en.wikipedia.org/wiki/John_A._Ferguson_Senior_High_School","15900 SW 56 Street","Miami","33185","","9-12","S",25.71800,-80.43800],
+["Miami Coral Park Senior High","https://en.wikipedia.org/wiki/Miami_Coral_Park_Senior_High_School","8865 SW 16 St.","Miami","33165","","9-12","C",25.75611,-80.34083],
+["Coral Gables Senior High","https://en.wikipedia.org/wiki/Coral_Gables_Senior_High_School","450 Bird Rd.","Coral Gables","33146","","9-12","C",25.73423,-80.26274],
+["Southwest Miami Senior High","https://en.wikipedia.org/wiki/Southwest_Miami_Senior_High_School","8855 SW 50 Terr.","Miami","33165","","9-12","S",25.72246,-80.33839],
+["Miami Senior High","https://en.wikipedia.org/wiki/Miami_Senior_High_School","2450 SW 1 St.","Miami","33135","","9-12","C",25.76600,-80.22600],
+["Miami Beach Senior High","https://en.wikipedia.org/wiki/Miami_Beach_Senior_High_School","2231 Prairie Ave.","Miami Beach","33139","","9-12","N",25.79300,-80.14400],
+["Miami Springs Senior High","https://en.wikipedia.org/wiki/Miami_Springs_Senior_High_School","751 Dove Ave.","Miami Springs","33166","","9-12","C",25.83071,-80.29467],
+["Hialeah/Miami Lakes Senior High","https://en.wikipedia.org/wiki/Hialeah%E2%80%93Miami_Lakes_Senior_High_School","7977 W 12 Ave.","Hialeah","33014","","9-12","N",25.87200,-80.30800],
+["Bermudez, J C Senior High","https://en.wikipedia.org/wiki/J._C._Bermudez_High_School","5005 NW 112 Ave.","Doral","33178","","9-12","C",25.81982,-80.37654],
+["Miami Killian Senior High","https://en.wikipedia.org/wiki/Miami_Killian_Senior_High_School","10655 SW 97 Ave.","Miami","33176","","9-12","S",25.67019,-80.35078],
+["Varela, Felix Senior High","https://en.wikipedia.org/wiki/Felix_Varela_Senior_High_School","15255 SW 96 St.","Miami","33196","","9-12","S",25.70100,-80.43300],
+["South Miami Senior High","https://en.wikipedia.org/wiki/South_Miami_Senior_High_School","6856 SW 53 St.","Miami","33155","","9-12","C",25.72107,-80.30558],
+["North Miami Beach Senior High","https://en.wikipedia.org/wiki/North_Miami_Beach_Senior_High_School","1247 NE 167 St.","North Miami Beach","33162","","9-12","N",25.92989,-80.17537],
+["Miami Sunset Senior High","https://en.wikipedia.org/wiki/Miami_Sunset_Senior_High_School","13125 SW 72 St.","Miami","33183","","9-12","S",25.68900,-80.38000],
+["South Dade Senior High","https://en.wikipedia.org/wiki/South_Dade_Senior_High_School","28401 SW 167 Ave.","Homestead","33030","","9-12","S",25.50138,-80.45983],
+["Homestead Senior High","https://en.wikipedia.org/wiki/Homestead_Senior_High_School","2351 SE 12 Ave.","Homestead","33034","","9-12","S",25.44870,-80.45970],
+["Hialeah Senior High","https://en.wikipedia.org/wiki/Hialeah_Senior_High_School","251 E 47 St.","Hialeah","33013","","9-12","N",25.86000,-80.27800],
+["Miami Norland Senior High","https://en.wikipedia.org/wiki/Miami_Norland_Senior_High_School","1050 NW 195 St.","Miami","33169","","9-12","N",25.95300,-80.20800],
+["Ronald W. Reagan/Doral Senior High","https://en.wikipedia.org/wiki/Ronald_W._Reagan/Doral_Senior_High_School","8600 NW 107 Ave.","Doral","33178","","9-12","C",25.80800,-80.38000]
+];
+
+const map = L.map('map', { scrollWheelZoom: true }).setView([25.72, -80.32], 10.4);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  maxZoom: 20,
+  subdomains: 'abcd'
+}).addTo(map);
+
+const activeRegions = new Set(['N','C','S','U']);
+const markers = [];
+
+function makeIcon(color, big){
+  const size = big ? 30 : 22;
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+        width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;
+        background:${color};
+        transform:rotate(-45deg);
+        border:2.5px solid #fff;
+        box-shadow:0 3px 8px rgba(0,0,0,0.35);
+      "></div>`,
+    iconSize:[size,size],
+    iconAnchor:[size/2, size]
+  });
+}
+
+function popupHtml(s){
+  const [name, link, addr, city, zip, phone, grades, region] = s;
+  const color = REGION_COLORS[region] || REGION_COLORS.U;
+  return `
+    <div class="popup-title">
+      <a href="${link}" target="_blank" rel="noopener noreferrer">${name}</a>
+    </div>
+    <div class="popup-row">${addr}, ${city}, FL ${zip}</div>
+    ${phone ? `<div class="popup-row">☎ ${phone}</div>` : ''}
+    <div class="popup-row">Grades ${grades}</div>
+    <span class="popup-tag" style="background:${color}">${REGION_NAMES[region] || 'Unassigned'} Region</span>
+  `;
+}
+
+SCHOOLS.forEach((s, i) => {
+  const [name, link, addr, city, zip, phone, grades, region, lat, lon] = s;
+
+  // Guard: skip cleanly instead of crashing the whole script if a row is malformed
+  if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) {
+    console.warn('Skipping school with invalid coordinates:', name, s);
+    markers.push({ marker: null, region, name, city, zip });
+    return;
+  }
+
+  const color = REGION_COLORS[region] || REGION_COLORS.U;
+  const marker = L.marker([lat, lon], { icon: makeIcon(color) }).addTo(map);
+  marker.bindPopup(popupHtml(s));
+  marker.on('click', () => highlight(i));
+  markers.push({ marker, region, name, city, zip });
+});
+
+function highlight(i){
+  document.querySelectorAll('.school-item').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.school-item[data-i="${i}"]`);
+  if(el){ el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+  const m = markers[i].marker;
+  if(!m) return;
+  map.flyTo(m.getLatLng(), 13.5, { duration: 0.6 });
+  m.openPopup();
+}
+
+// Legend
+const legendRow = document.getElementById('legendRow');
+['N','C','S'].forEach(r => {
+  const chip = document.createElement('div');
+  chip.className = 'legend-chip';
+  chip.dataset.region = r;
+  chip.innerHTML = `<span class="legend-dot" style="background:${REGION_COLORS[r]}"></span>${REGION_NAMES[r]}`;
+  chip.addEventListener('click', () => {
+    if(activeRegions.has(r)){ activeRegions.delete(r); chip.classList.add('off'); }
+    else { activeRegions.add(r); chip.classList.remove('off'); }
+    applyFilter();
+  });
+  legendRow.appendChild(chip);
+});
+
+// List
+const listEl = document.getElementById('list');
+function renderList(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  listEl.innerHTML = '';
+  SCHOOLS.forEach((s, i) => {
+    const [name, link, addr, city, zip, phone, grades, region] = s;
+    if(!activeRegions.has(region)) return;
+    if(q && !(name.toLowerCase().includes(q) || city.toLowerCase().includes(q) || zip.includes(q))) return;
+    const item = document.createElement('div');
+    item.className = 'school-item';
+    item.dataset.i = i;
+    item.innerHTML = `
+      <div class="school-swatch" style="background:${REGION_COLORS[region]}"></div>
+      <div>
+        <div class="school-name"><a href="${link}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${name}</a></div>
+        <div class="school-meta">${city}, FL ${zip} · ${REGION_NAMES[region]}</div>
+      </div>
+    `;
+    item.addEventListener('click', () => highlight(i));
+    listEl.appendChild(item);
+  });
+}
+
+function applyFilter(){
+  markers.forEach(({marker, region}) => {
+    if(!marker) return;
+    if(activeRegions.has(region)){
+      if(!map.hasLayer(marker)) marker.addTo(map);
+    } else {
+      map.removeLayer(marker);
+    }
+  });
+  renderList();
+}
+
+document.getElementById('search').addEventListener('input', renderList);
+renderList();
+
+// Stats
+const statStrip = document.getElementById('statStrip');
+const counts = { N:0, C:0, S:0 };
+SCHOOLS.forEach(s => { if(counts[s[7]] !== undefined) counts[s[7]]++; });
+const stats = [
+  [SCHOOLS.length, 'Zoned high schools'],
+  [counts.N, 'North region'],
+  [counts.C, 'Central region'],
+  [counts.S, 'South region'],
+];
+statStrip.innerHTML = stats.map(s => `<div class="cell"><div class="n">${s[0]}</div><div class="l">${s[1]}</div></div>`).join('');
+</script>
+
+</body>
+</html>
